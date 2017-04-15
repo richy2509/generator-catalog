@@ -1,2 +1,5 @@
-var generator = require("generator-catalog");
+var generator = require("../index");
+
 generator.printMsg();
+
+generator.build(["b", "a"]);
