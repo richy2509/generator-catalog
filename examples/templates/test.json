@@ -1,1 +1,4 @@
-{{value}} spends
+{
+  "data": "{{value}}",
+  "code": "{{value}}"
+}

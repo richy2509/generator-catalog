@@ -5,123 +5,106 @@ const util = require('util');
 const fs = require('fs');
 const asciiArt = require('ascii-art');
 const Mustache = require('mustache');
+const Path = require('path');
+let ParserService = require('./src/parser_service');
+let ConfigValidator = require('./src/validator/config_validator');
 
-let ArgumentParser = require('./node_modules/argparse').ArgumentParser;
+let parser = new ParserService();
+let configValidator = new ConfigValidator();
 
-var generator = function () {
+let generator = function () {
 
-    let parser = new ArgumentParser({
-        version: '0.0.1',
-        addHelp: true,
-        description: 'Generator-catalog'
-    });
-    let data = {};
-
-    var self = this;
+    let data = [];
+    let self = this;
 
     self.printHelloMsg = function (callback) {
         asciiArt.font('Generator', 'Doom', 'red', function (rendered) {
             console.log("--------------------------------------------------------");
             console.log(rendered);
             console.log("--------------------------------------------------------");
-            callback();
         });
+        if (callback !== undefined) {
+            callback();
+        }
     };
 
     self.build = function (args) {
+        log("Builder ...");
 
-        args.forEach(function (a) {
-            parser.addArgument(
-                a.option,
-                {
-                    help: a.description,
-                    required: a.required
-                }
-            );
+        const parsedValues = parser.parse(args);
+
+        args.forEach((a) => {
+            let d = {};
+            d.code = a.code;
+            d.validate = a.validate ? a.validate : '';
+            d.data = {};
+            d.data.value = parsedValues[a.code];
+            d.generated = a.generated;
+            data.push(d);
         });
 
-        const parsedValues = parser.parseArgs();
+        fs.writeFileSync("./src/config/config.json", util.inspect(data));
 
-        data = args.map((a) => {
-            a.data = {};
-            a.data.value = parsedValues[a.code];
-            return a;
-        });
+        debug(data   );
 
     };
 
     self.validate = function () {
-
-        data
-            .filter((d) => {
-                return d.validate;
-            })
-            .map((d) => {
-                if ((d.type === "folder" || d.type === "file") && !fs.existsSync(d.data.value.toString())) {
-                    throw new Error(`Invalid ${d.type} for ${d.data.value}`);
-                }
-
-            });
-
+        log("Validate...");
+        configValidator.validate(data);
     };
 
-    self.get = function (name, args) {
-        return args[name];
+    self.generateDataValues = function(){
+        let dataGenerated = {};
+        data.map((d) => {
+            dataGenerated[d.code] = d.data;
+            dataGenerated[d.code].generated = d.generated;
+        });
+        fs.writeFileSync("./src/config/configGenerated.json", util.inspect(dataGenerated));
+        return dataGenerated;
     };
 
-    self.launchAction = function (name, callback) {
-        data.filter((d) => {
-            return d.code === name;
-        }).map((d) => {
-            callback(
-                data.filter((f) => {
-                    return f.code === "from"
-                }).map((f) => {
-                    return f.data.value;
-                }).toString(),
-                d.data,
-                data.filter((f) => {
-                    return f.code === "output"
-                }).map((f) => {
-                    return f.data.value;
-                }).toString()
-            )
-            ;
-        })
-
-    };
-
-    self.replaceInFile = function (path, view, output) {
-        log(`path : ${path}`);
-        log(`view: ${util.inspect(view)}`);
-        log(`output: ${output}`);
-        var iter = [];
-        if (!fs.lstatSync(path).isDirectory()) {
-            iter.push(path);
+    self.generate = function (from, to, view) {
+        log("Validate...");
+        debug(`from : ${from} - to: ${to} - view ${view}`);
+        let iter = [];
+        if (!fs.lstatSync(from.value).isDirectory()) {
+            iter.push(from.value);
         } else {
-            iter = fs.readdirSync(path).map((d)=>{
-                return `${path}/${d}`;
+            iter = fs.readdirSync(from.value).map((d) => {
+                return `${from.value}/${d}`;
             });
         }
         iter.forEach(function (path) {
-            fs.readFile(path, function (err, data) {
-                if (err) throw err;
-                let filepath = `${output}${new Date().getTime()}`;
-                fs.writeFile(filepath, Mustache.render(data.toString(), view), (err) => {
+
+            let extension = Path.extname(path).replace(".", "");
+            log(to.generated);
+            to.generated.filter((g) => {
+                return g.extension === extension;
+            })
+            .slice(0,1)
+            .map((g) => {
+                fs.readFile(path, function (err, data) {
                     if (err) throw err;
-                    log(`File saved ${filepath}`)
-                });
+                    let filepath = `${to.value}${g.value}`.replace("$1", view.value);
+                    log(filepath);
+                    fs.writeFile(filepath, Mustache.render(data.toString(), view), (err) => {
+                        if (err) throw err;
+                        log(`File saved ${filepath}`)
+                    });
+                })
             })
         });
     };
 
-    self.test = function () {
-        log("test");
-    }
 };
 
 function log(msg) {
-    console.log(`${new Date()} [generator-catalog] ${util.inspect(msg)}`);
+    console.log(`${new Date()} [generator-catalog] ${msg}`);
+}
+
+function debug(msg) {
+    console.log(`${new Date()} [debug] ${util.inspect(msg)}`);
 }
 
 module.exports = generator;

@@ -39,5 +39,7 @@ jspm_packages
 #idea
 .idea 
 
-#output
+#output generated
 examples/output
+src/config
+examples/templates
