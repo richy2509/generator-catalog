@@ -15,14 +15,14 @@ const config = [
             code: "from",
             option: ["-f", "--from"],
             description: "Template folder",
-            required: true,
+            value: "./examples/templates",
             validate: "folder"
         },
         {
             code: "output",
             option: ["-o", "--output"],
             description: "output folder",
-            required: true,
+            value: "./examples/output",
             generated: [
                 {
                     extension: "js",

@@ -34,11 +34,12 @@ let generator = function () {
         const parsedValues = parser.parse(args);
 
         args.forEach((a) => {
+            let parsedValue = parsedValues[a.code];
             let d = {};
             d.code = a.code;
             d.validate = a.validate ? a.validate : '';
             d.data = {};
-            d.data.value = parsedValues[a.code];
+            d.data.value = parsedValue !== undefined && parsedValue !== null ? parsedValue : a.value;
             d.generated = a.generated;
             data.push(d);
         });
